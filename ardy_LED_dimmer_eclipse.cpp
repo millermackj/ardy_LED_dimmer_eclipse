@@ -12,6 +12,8 @@
 #define LED_CLOCK_PIN 2
 #define LED_DATA_PIN 3
 #define LED_CSLOAD_PIN 4
+#define UP 1
+#define DOWN 0
 
 #include <LedControl.h>
 // digital pins for LED Display driver MAX7221
@@ -26,12 +28,15 @@ int dimmer_pct = 0;
 long unsigned int blink_clock = 0;
 long unsigned int calc_cadence_clock = 0;
 long unsigned int sample_clock = 0;
+long unsigned int update_display_clock = 0;
+int update_display_period = 200;
 int calc_cadence_period = 50;
 int led_state = 0;
 int blink_period = 1000;
 const int impulse_num_samples = 100;
 int impulse_array[impulse_num_samples];
 pulser_struct pulser;
+int hold_display = 0;
 
 double alpha = .05;
 // instantiate LED Display controller -- the 4th argument is the number of displays
@@ -55,8 +60,10 @@ void setup() {
   pulser.carrier_clock = 0;
   pulser.carrier_period = 5000;
   pulser.step_clock = 0;
-  pulser.pulse_period = 5000;
-  pulser.step_period = pulser.pulse_period / impulse_num_samples;
+  pulser.pulse_up_period = 1000;
+  pulser.pulse_down_period = 3500;
+  pulser.step_period_up = pulser.pulse_up_period / impulse_num_samples;
+  pulser.step_period_down = pulser.pulse_down_period / impulse_num_samples;
   pulser.index = 0;
   pulser.offset_time = 0; // start pulse at beginning of each carrier period
 
@@ -66,8 +73,8 @@ void setup() {
 void init_impulse(int * array, int array_length, int peak_value){
 	int i = 0;
 	for(i = 0; i < array_length; i ++){
-		array[i] = (int)((double)peak_value*0.5*(cos((2.0*pi*(double)i)/(double)array_length - pi) + 1.0));
-
+//		array[i] = (int)((double)peak_value*0.5*(cos((2.0*pi*(double)i)/(double)array_length - pi) + 1.0));
+		array[i] = -(int)((double)peak_value*0.5*(cos((pi/(double)array_length)*(double)i) - 1.0));
 	}
 }
 
@@ -90,6 +97,11 @@ void showLED(long dispNumMill, int sigfigs) {
 
 	if (dispNumMill >= 100000) { // if number is bigger than a hundred, move decimal to right.
 		decipoint = 1;
+		dispNumMill = dispNumMill / 10;
+	}
+
+	if (dispNumMill >= 100000) { // if number is still bigger than a hundred, move decimal to right.
+		decipoint = -1;
 		dispNumMill = dispNumMill / 10;
 	}
 
@@ -122,20 +134,30 @@ void loop() {
   if(current_time >= sample_clock){
   	sample_clock += SAMPLE_PERIOD;
     dimmer_cts = alpha*analogRead(POT_PIN) + (1.0-alpha)*dimmer_cts;
-    dimmer_pct = map(round(dimmer_cts*100), 0 , 90000, 0, 1000);
-    analogWrite(LED_PWM_PIN, map(round(dimmer_cts), 0, 900, 0, 255));
+    dimmer_pct = map(round(dimmer_cts), 0 , 873, 0, 100);
+//  	pulser.pulse_up_period = (int)map(round(dimmer_cts), 0 , 873, 0, (long int)pulser.carrier_period);
+    analogWrite(LED_PWM_PIN, map(round(dimmer_cts), 0, 873, 0, 255));
     if(current_time >= pulser.carrier_clock){
-    	pulser.carrier_clock = current_time + pulser.carrier_period;
+    	pulser.pulse_down_period = pulser.carrier_period - pulser.pulse_up_period;
+      pulser.step_period_up = pulser.pulse_up_period / impulse_num_samples;
+      pulser.step_period_down = pulser.pulse_down_period / impulse_num_samples;
+      pulser.carrier_clock = current_time + pulser.carrier_period;
     	pulser.index = 0;
     	pulser.step_clock = current_time + pulser.offset_time;
+    	pulser.down_or_up = UP;
     }
 //    analogWrite(LED_PWM_PIN, impulse_array[pulser.index]);
-   // showLED((long int)impulse_array[pulser.index] * 1000, 4);
+//    showLED((long int)impulse_array[pulser.index] * 1000, 4);
 
     if(current_time >= pulser.step_clock){
-    	if (pulser.index < impulse_num_samples - 1) {
-    		pulser.step_clock += pulser.step_period;
+    	if (pulser.down_or_up == UP && pulser.index < impulse_num_samples - 1) {
+    		pulser.step_clock += pulser.step_period_up;
     		pulser.index++;
+    	}
+    	else if(pulser.index > 0){
+    		pulser.down_or_up = DOWN;
+    		pulser.step_clock += pulser.step_period_down;
+    		pulser.index--;
     	}
     }
 
@@ -176,7 +198,11 @@ void loop() {
   	else{
   		cadence_enc.hertz = (1000L*1000L)/cadence_enc.last_period;
   	}
-  	showLED(60*cadence_enc.hertz,4);
+  	if(!hold_display){
+  		showLED(60*cadence_enc.hertz,4);
+  	}
+  	else
+  		hold_display--;
   	calc_cadence_clock = current_time+calc_cadence_period;
   }
 //  if(current_time >= blink_clock){
@@ -184,4 +210,11 @@ void loop() {
 //  	digitalWrite(LED_PIN, led_state);
 //  	blink_clock = current_time + blink_period;
 //  }
+
+  if(current_time >= update_display_clock){
+  	update_display_clock = current_time + update_display_period;
+//    showLED((long int)pulser.pulse_up_period * 1000, 4);
+//    showLED((long int)dimmer_pct * 1000, 4);
+
+  }
 }

@@ -38,13 +38,16 @@ typedef struct{
 
 typedef struct{
 	int carrier_period;
-	int pulse_period;
-	int step_period;
+	int pulse_up_period;
+	int pulse_down_period;
+	int step_period_up;
+	int step_period_down;
 	long unsigned int carrier_clock;
 	long unsigned int pulse_clock;
 	long unsigned int step_clock;
 	int index;
 	int offset_time; // ms after carrier to start pulse
+	int down_or_up;
 
 }pulser_struct;
 
