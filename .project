@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>ardy_LED_dimmer_eclipse</name>
+	<name>ardy_Current_Meter</name>
 	<comment></comment>
 	<projects>
 		<project>Arduino_Duemilanove_w__ATmega328</project>

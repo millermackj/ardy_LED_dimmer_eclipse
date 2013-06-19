@@ -4,10 +4,10 @@
 // - extern variable definitions
 // In the appropriate section
 
-#ifndef ardy_LED_dimmer_eclipse_H_
-#define ardy_LED_dimmer_eclipse_H_
+#ifndef ardy_Current_Meter_H_
+#define ardy_Current_Meter_H_
 #include "Arduino.h"
-//add your includes for the project ardy_LED_dimmer_eclipse here
+//add your includes for the project ardy_Current_Meter here
 
 
 //end of add your includes here
@@ -20,7 +20,7 @@ void setup();
 } // extern "C"
 #endif
 
-//add your function definitions for the project ardy_LED_dimmer_eclipse here
+//add your function definitions for the project ardy_Current_Meter here
 typedef struct{
 	int debounce_cnt;
 	int debounce_min;
@@ -48,14 +48,24 @@ typedef struct{
 	int index;
 	int offset_time; // ms after carrier to start pulse
 	int down_or_up;
-
 }pulser_struct;
 
+typedef struct{
+	int sense_pin_num;
+	int supply_pin_num;
+	int sense_cts;
+	int suppy_cts;
+	long int current_ratio; // converts ratio of sense:2*supply to mA
+	int current;
+}current_sensor_struct;
 
 void initLedDisp();
 void showLED(long dispNumMill, int sigfigs);
-int poll_encoder(encoder_struct encoder);
+void poll_potentiometer();
 void init_impulse(int * array, int array_length, int peak_value);
+void step_pulser(long unsigned int current_ime, pulser_struct* pulse);
+void poll_encoder(long unsigned int current_time, encoder_struct* encoder);
+void calculate_cadence(long unsigned int current_time, encoder_struct* cadence_enc);
 
 //Do not add code below this line
-#endif /* ardy_LED_dimmer_eclipse_H_ */
+#endif /* ardy_Current_Meter_H_ */
