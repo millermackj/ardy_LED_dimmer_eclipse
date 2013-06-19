@@ -5,22 +5,22 @@
 /*12V LED strip dimmer*/
 #define LED_PWM_PIN 11 // digital output pin
 #define POT_PIN 0 // analog input pin
+#define CURRENT_PIN 2 // analog current input
 #define SAMPLE_PERIOD 1 // A/D sampling period in milliseconds
-#define INTERRUPTER_PIN 7
-#define LED_PIN 8
+#define INTERRUPTER_PIN 2 // tachometer pin
+#define LED_PIN 13 // onboard LED
 
-// digital pins for LED Display driver MAX7221
-#define LED_CLOCK_PIN 2
-#define LED_DATA_PIN 3
-#define LED_CSLOAD_PIN 4
-#define UP 1
-#define DOWN 0
+// Adafruit libraries for use of LCD display
+#include "Adafruit_GFX.h"
+#include "Adafruit_PCD8544.h"
 
-#include <LedControl.h>
-// digital pins for LED Display driver MAX7221
-const int LEDClkPin = 2;
-const int LEDDataPin = 3;
-const int LEDCSLoadPin = 4;
+// digital pins for LCD display
+#define LCD_LED 9 	// pin 9 - LED backlight
+#define LCD_SCLK 8	// pin 8 - Serial clock out (SCLK)
+#define LCD_DIN 7		// pin 7 - Serial data out (DIN)
+#define LCD_DC 6 		// pin 6 - Data/Command select (D/C)
+#define LCD_CS 4		// pin 4 - LCD chip select (CS)
+#define LCD_RST 5		// pin 5 - LCD reset (RST)
 
 const double pi = 3.141592654;
 
@@ -30,12 +30,12 @@ int dimmer_debounce = 0;
 int dimmer_debounce_limit = 20;
 long int dimmer_pct = 0;
 long unsigned int blink_clock = 0;
-long unsigned int calc_cadence_clock = 0;
+long unsigned int calc_tach_clock = 0;
 long unsigned int sample_clock = 0;
 long unsigned int update_display_clock = 0;
 long unsigned int post_to_serial_clock = 0;
 int update_display_period = 200;
-int calc_cadence_period = 50;
+int calc_tach_period = 50;
 int post_to_serial_period = 100;
 int led_state = 0;
 int blink_period = 1000;
@@ -47,28 +47,32 @@ int hold_display = 0;
 double alpha = .1;
 char outputbuffer[128];
 
-// instantiate LED Display controller -- the 4th argument is the number of displays
-LedControl ledDisplay = LedControl(LED_DATA_PIN, LED_CLOCK_PIN, LED_CSLOAD_PIN, 1);
-encoder_struct cadence_enc;
+// instantiate LCD Display controller using the Adafruit library
+Adafruit_PCD8544 display = Adafruit_PCD8544(LCD_SCLK, LCD_DIN, LCD_DC, LCD_CS, LCD_RST);
+encoder_struct tach_enc;
 current_sensor_struct current_sensor;
 
 void setup() {
 	Serial.begin(115200);
-	Serial.write("<h>time\tcadence</h>\n");
+	Serial.write("<h>time\tspeed</h>\n");
 	Serial.write("<u>ms\trpm</u>\n");
   pinMode(LED_PWM_PIN, OUTPUT);
   //pinMode(POT_PIN, INPUT);
   pinMode(INTERRUPTER_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
-  initLedDisp();
+
+  display.setTextSize(1);
+  display.setTextColor(BLACK);
+
   blink_clock = millis();
-  cadence_enc.max_hertz = 5;
-  cadence_enc.max_period = 5000;
-  cadence_enc.pin_num = INTERRUPTER_PIN;
-  cadence_enc.debounce_min = 5;
-  cadence_enc.alpha = 800;
-  cadence_enc.cts_per_rev = 1;
-  cadence_enc.hertz = 0;
+
+  tach_enc.max_hertz = 5;
+  tach_enc.max_period = 5000;
+  tach_enc.pin_num = INTERRUPTER_PIN;
+  tach_enc.debounce_min = 5;
+  tach_enc.alpha = 800;
+  tach_enc.cts_per_rev = 1;
+  tach_enc.hertz = 0;
 
   pulser.carrier_clock = 0;
   pulser.carrier_period = 5000;
@@ -81,6 +85,8 @@ void setup() {
   pulser.offset_time = 0; // start pulse at beginning of each carrier period
 
   init_impulse(impulse_array, impulse_num_samples, 255);
+
+
 }
 
 void init_impulse(int * array, int array_length, int peak_value){
@@ -205,8 +211,8 @@ void poll_encoder(long unsigned int current_time, encoder_struct* encoder){
   if (encoder->last_state != encoder->pin_state){
   	digitalWrite(LED_PIN, encoder->pin_state);
   	if(encoder->pin_state == LOW){ // detect falling edge
-//    		cadence_enc->last_period = (cadence_enc->alpha*(current_time - cadence_enc->startTime)
-//    				+ (1000L - cadence_enc->alpha)*cadence_enc->last_period)/1000;
+//    		tach_enc->last_period = (tach_enc->alpha*(current_time - tach_enc->startTime)
+//    				+ (1000L - tach_enc->alpha)*tach_enc->last_period)/1000;
   		encoder->last_period = (current_time - encoder->startTime);
   		encoder->startTime = current_time;
   	}
@@ -214,17 +220,22 @@ void poll_encoder(long unsigned int current_time, encoder_struct* encoder){
   encoder->last_state = encoder->pin_state;
 }
 
-void calculate_cadence(long unsigned int current_time, encoder_struct* cadence_enc){
-	if(cadence_enc->last_period != 0){
-		if((current_time - cadence_enc->startTime) > cadence_enc->max_period){
-			cadence_enc->hertz = 0;
+void calculate_tach(long unsigned int current_time, encoder_struct* tach_enc){
+	if(tach_enc->last_period != 0){
+		if((current_time - tach_enc->startTime) > tach_enc->max_period){
+			tach_enc->hertz = 0;
 		}
-		else if(current_time - cadence_enc->startTime > cadence_enc->last_period)
-			cadence_enc->hertz = (1000L*1000L)/((current_time - cadence_enc->startTime)*cadence_enc->cts_per_rev);
+		else if(current_time - tach_enc->startTime > tach_enc->last_period)
+			tach_enc->hertz = (1000L*1000L)/((current_time - tach_enc->startTime)*tach_enc->cts_per_rev);
 		else{
-			cadence_enc->hertz = (1000L*1000L)/(cadence_enc->last_period*cadence_enc->cts_per_rev);
+			tach_enc->hertz = (1000L*1000L)/(tach_enc->last_period*tach_enc->cts_per_rev);
 		}
 	}
+}
+
+void calculate_current(current_sensor_struct* current_sense){
+	current_sense->sense_cts = analogRead(CURRENT_PIN);
+	current_sense->current = map(current_sense->sense_cts, 0, 1023, -2500, 2500);
 }
 
 void loop() {
@@ -242,12 +253,12 @@ void loop() {
     // step through impulse routine
     step_pulser(current_time, &pulser);
 
-    // poll the cadence encoder
-    poll_encoder(current_time, &cadence_enc);
+    // poll the tachometer encoder
+    poll_encoder(current_time, &tach_enc);
 
-		if(current_time >= calc_cadence_clock){
-			calc_cadence_clock = current_time + calc_cadence_period;
-			calculate_cadence(current_time, &cadence_enc);
+		if(current_time >= calc_tach_clock){
+			calc_tach_clock = current_time + calc_tach_period;
+			calculate_tach(current_time, &tach_enc);
 		}
 
 //  if(current_time >= blink_clock){
@@ -257,20 +268,23 @@ void loop() {
 //  }
 
 		if(current_time >= update_display_clock){
+
 			update_display_clock = current_time + update_display_period;
-			showLED(60*cadence_enc.hertz,4);
-//			showLED((long int)pulser.pulse_up_period * 1000, 4);
-//			showLED(dimmer_pct * 100, 4);
-//			showLED(dimmer_cts * 1000, 4);
+		  display.setCursor(0,0);
+		  display.print("Current: ");
+		  display.println(current_sensor.current);
+		  display.print("Speed: ");
+		  display.println(60*tach_enc.hertz / 1000.0);
+		  display.display();
 		}
 		if(current_time >= post_to_serial_clock){
 			post_to_serial_clock = current_time + post_to_serial_period;
 //			Serial.write("<r>");
-//			Serial.write(cadence_enc.hertz / 1000);
+//			Serial.write(tach_enc.hertz / 1000);
 //			Serial.write(".");
-//			Serial.write(cadence_enc.hertz % 1000);
+//			Serial.write(tach_enc.hertz % 1000);
 			sprintf(outputbuffer, "<r>%lu.%03lu\t%ld.%03ld</r>\n", current_time/1000,
-					current_time % 1000, (60*cadence_enc.hertz)/1000, (60*cadence_enc.hertz) % 1000);
+					current_time % 1000, (60*tach_enc.hertz)/1000, (60*tach_enc.hertz) % 1000);
 			Serial.write(outputbuffer);
 		}
   }

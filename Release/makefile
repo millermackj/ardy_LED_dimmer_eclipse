@@ -8,6 +8,9 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include libraries/Adafruit-PCD8544-Nokia-5110-LCD-library-master/examples/pcdtest/subdir.mk
+-include libraries/Adafruit-PCD8544-Nokia-5110-LCD-library-master/subdir.mk
+-include libraries/Adafruit-GFX-Library-master/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -48,56 +51,56 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 LSS += \
-ardy_LED_dimmer_eclipse.lss \
+ardy_Current_Meter.lss \
 
 FLASH_IMAGE += \
-ardy_LED_dimmer_eclipse.hex \
+ardy_Current_Meter.hex \
 
 EEPROM_IMAGE += \
-ardy_LED_dimmer_eclipse.eep \
+ardy_Current_Meter.eep \
 
 SIZEDUMMY += \
 sizedummy \
 
 
 # All Target
-all: ardy_LED_dimmer_eclipse.elf secondary-outputs
+all: ardy_Current_Meter.elf secondary-outputs
 
 # Tool invocations
-ardy_LED_dimmer_eclipse.elf: $(OBJS) $(USER_OBJS)
+ardy_Current_Meter.elf: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: AVR C++ Linker'
-	avr-gcc -Os -Wl,--gc-sections  -L"/Volumes/Overflow HDD/Dropbox/eclipse/Arduino_Duemilanove_w__ATmega328/Release" -mmcu=atmega328p  -o"ardy_LED_dimmer_eclipse.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
+	avr-gcc -Os -Wl,--gc-sections  -L"/Volumes/Overflow HDD/Dropbox/eclipse/Arduino_Duemilanove_w__ATmega328/Release" -mmcu=atmega328p  -o"ardy_Current_Meter.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
 	@echo 'Finished building target: $@'
 	@echo ' '
 
-ardy_LED_dimmer_eclipse.lss: ardy_LED_dimmer_eclipse.elf
+ardy_Current_Meter.lss: ardy_Current_Meter.elf
 	@echo 'Invoking: AVR Create Extended Listing'
-	-avr-objdump -h -S ardy_LED_dimmer_eclipse.elf  >"ardy_LED_dimmer_eclipse.lss"
+	-avr-objdump -h -S ardy_Current_Meter.elf  >"ardy_Current_Meter.lss"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-ardy_LED_dimmer_eclipse.hex: ardy_LED_dimmer_eclipse.elf
+ardy_Current_Meter.hex: ardy_Current_Meter.elf
 	@echo 'Create Flash image (ihex format)'
-	-avr-objcopy -R .eeprom -O ihex ardy_LED_dimmer_eclipse.elf  "ardy_LED_dimmer_eclipse.hex"
+	-avr-objcopy -R .eeprom -O ihex ardy_Current_Meter.elf  "ardy_Current_Meter.hex"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-ardy_LED_dimmer_eclipse.eep: ardy_LED_dimmer_eclipse.elf
+ardy_Current_Meter.eep: ardy_Current_Meter.elf
 	@echo 'Create eeprom image (ihex format)'
-	-avr-objcopy -j .eeprom --no-change-warnings --change-section-lma .eeprom=0 -O ihex ardy_LED_dimmer_eclipse.elf  "ardy_LED_dimmer_eclipse.eep"
+	-avr-objcopy -j .eeprom --no-change-warnings --change-section-lma .eeprom=0 -O ihex ardy_Current_Meter.elf  "ardy_Current_Meter.eep"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-sizedummy: ardy_LED_dimmer_eclipse.elf
+sizedummy: ardy_Current_Meter.elf
 	@echo 'Invoking: Print Size'
-	-avr-size --format=avr --mcu=atmega328p ardy_LED_dimmer_eclipse.elf
+	-avr-size --format=avr --mcu=atmega328p ardy_Current_Meter.elf
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(C_DEPS)$(EEPROM_IMAGE)$(FLASH_IMAGE)$(ELFS)$(LSS)$(S_DEPS)$(CXX_DEPS)$(S_UPPER_DEPS)$(C++_DEPS)$(ASM_DEPS)$(CC_DEPS)$(INO_DEPS)$(CPP_DEPS)$(C_UPPER_DEPS)$(SIZEDUMMY) ardy_LED_dimmer_eclipse.elf
+	-$(RM) $(OBJS)$(C_DEPS)$(EEPROM_IMAGE)$(FLASH_IMAGE)$(ELFS)$(LSS)$(S_DEPS)$(CXX_DEPS)$(S_UPPER_DEPS)$(C++_DEPS)$(ASM_DEPS)$(CC_DEPS)$(INO_DEPS)$(CPP_DEPS)$(C_UPPER_DEPS)$(SIZEDUMMY) ardy_Current_Meter.elf
 	-@echo ' '
 
 secondary-outputs: $(LSS) $(FLASH_IMAGE) $(EEPROM_IMAGE) $(SIZEDUMMY)

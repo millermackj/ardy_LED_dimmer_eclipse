@@ -65,7 +65,7 @@ void poll_potentiometer();
 void init_impulse(int * array, int array_length, int peak_value);
 void step_pulser(long unsigned int current_ime, pulser_struct* pulse);
 void poll_encoder(long unsigned int current_time, encoder_struct* encoder);
-void calculate_cadence(long unsigned int current_time, encoder_struct* cadence_enc);
+void calculate_tach(long unsigned int current_time, encoder_struct* cadence_enc);
 
 //Do not add code below this line
 #endif /* ardy_Current_Meter_H_ */

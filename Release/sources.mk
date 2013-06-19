@@ -33,5 +33,8 @@ SIZEDUMMY :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
+libraries/Adafruit-PCD8544-Nokia-5110-LCD-library-master/examples/pcdtest \
+libraries/Adafruit-PCD8544-Nokia-5110-LCD-library-master \
+libraries/Adafruit-GFX-Library-master \
 . \
 
