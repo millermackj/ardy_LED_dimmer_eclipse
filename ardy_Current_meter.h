@@ -53,12 +53,26 @@ typedef struct{
 typedef struct{
 	int sense_pin_num;
 	int supply_pin_num;
-	int sense_cts;
+	long int sense_cts;
 	int suppy_cts;
 	long int current_ratio; // converts ratio of sense:2*supply to mA
 	int current;
 }current_sensor_struct;
 
+typedef struct{
+	int sense_pin_num;
+	long int sense_cts;
+	long int max_volts; // voltage when sensor reads 1023
+	long int voltage;
+}volt_sensor_struct;
+
+
+void LcdCharacter(char character);
+void LcdClear(void);
+void LcdInitialize(void);
+void LcdString(char *characters);
+void LcdWrite(byte dc, byte data);
+void gotoXY(int x, int y);
 void initLedDisp();
 void showLED(long dispNumMill, int sigfigs);
 void poll_potentiometer();
@@ -66,6 +80,7 @@ void init_impulse(int * array, int array_length, int peak_value);
 void step_pulser(long unsigned int current_ime, pulser_struct* pulse);
 void poll_encoder(long unsigned int current_time, encoder_struct* encoder);
 void calculate_tach(long unsigned int current_time, encoder_struct* cadence_enc);
-
+void calculate_current(current_sensor_struct* current_sensor);
+void calculate_voltage(volt_sensor_struct* volt_sensor);
 //Do not add code below this line
 #endif /* ardy_Current_Meter_H_ */
