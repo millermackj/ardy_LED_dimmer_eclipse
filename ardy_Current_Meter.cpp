@@ -131,6 +131,10 @@ const double pi = 3.141592654;
 #define UP 1
 #define DOWN 0
 
+#define SHOW_WATTS 0
+#define SHOW_RPM 1
+
+long int watts = 0;
 long int dimmer_cts_new = 0;
 long int dimmer_cts = 0;
 int dimmer_debounce = 0;
@@ -142,15 +146,21 @@ long unsigned int sample_clock = 0;
 long unsigned int calc_current_clock = 0;
 long unsigned int update_display_clock = 0;
 long unsigned int post_to_serial_clock = 0;
+long unsigned int toggle_display_clock = 0;
+
 int update_display_period = 1000;
 int calc_tach_period = 10;
 int post_to_serial_period = 100;
 int led_state = 0;
 int blink_period = 1000;
+int toggle_display_period = 2000;
+
+
 //const int impulse_num_samples = 100;
 //int impulse_array[impulse_num_samples];
 //pulser_struct pulser;
 int hold_display = 0;
+int toggle_display = SHOW_RPM;
 
 double alpha = .1;
 char outputbuffer[128];
@@ -400,6 +410,16 @@ void loop() {
 //  	blink_clock = current_time + blink_period;
 //  }
 
+		if(current_time >= toggle_display_clock){
+			toggle_display_clock = current_time + toggle_display_period;
+			toggle_display = !toggle_display;
+		  gotoXY(0,2);
+		  if(toggle_display == SHOW_RPM)
+		  	LcdString((char*)"Speed:");
+		  else if(toggle_display == SHOW_WATTS)
+		  	LcdString((char*)"Power:");
+		}
+
 		if(current_time >= update_display_clock){
 
 			update_display_clock = current_time + update_display_period;
@@ -411,7 +431,16 @@ void loop() {
 		  gotoXY(6,1);
 		  LcdString(outputbuffer);
 
-		  snprintf(outputbuffer,11,"%ld.%01ld RPM", (60*tach_enc.hertz)/1000, ((60*tach_enc.hertz)%1000) / 100);
+
+		  if(toggle_display == SHOW_RPM){
+			  snprintf(outputbuffer,11,"%ld.%01ld RPM", (60*tach_enc.hertz)/1000, ((60*tach_enc.hertz)%1000) / 100);
+		  }
+
+		  else if(toggle_display == SHOW_WATTS){
+		  	watts = (current_sensor.current * volt_sensor.voltage) / 1000;
+			  snprintf(outputbuffer,11,"%ld.%01ld Watts", watts/1000, (watts%1000) / 100);
+		  }
+
 		  gotoXY(6,3);
 		  LcdString((char*)"           ");
 		  gotoXY(6,3);
