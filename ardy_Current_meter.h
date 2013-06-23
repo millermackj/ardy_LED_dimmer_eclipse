@@ -31,7 +31,7 @@ typedef struct{
   int pin_num;
   int last_period;
   int cts_per_rev;
-  unsigned int last_state;
+  int last_state;
   unsigned int max_period;
   long int alpha;
 }encoder_struct;

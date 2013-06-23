@@ -359,7 +359,7 @@ void calculate_tach(long unsigned int current_time, encoder_struct* tach_enc){
 		if((current_time - tach_enc->startTime) > tach_enc->max_period){
 			tach_enc->hertz = 0;
 		}
-		else if(current_time - tach_enc->startTime > tach_enc->last_period)
+		else if((current_time - tach_enc->startTime) > tach_enc->last_period)
 			tach_enc->hertz = (1000L*1000L)/((current_time - tach_enc->startTime)*tach_enc->cts_per_rev);
 		else{
 			tach_enc->hertz = (1000L*1000L)/(tach_enc->last_period*tach_enc->cts_per_rev);
@@ -368,7 +368,7 @@ void calculate_tach(long unsigned int current_time, encoder_struct* tach_enc){
 }
 
 void calculate_current(current_sensor_struct* current_sense){
-	current_sense->sense_cts = ((long int)(current_sense->sense_cts*800L) + (long int)((analogRead(CURRENT_PIN)-7)*200L))/1000L;
+	current_sense->sense_cts = ((long int)(current_sense->sense_cts*800L) + (long int)((analogRead(CURRENT_PIN)-9)*200L))/1000L;
 	current_sense->current = (int)map(current_sense->sense_cts, 0, 1023, -25000, 25000);
 }
 

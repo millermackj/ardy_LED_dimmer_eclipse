@@ -70,7 +70,7 @@ all: ardy_Current_Meter.elf secondary-outputs
 ardy_Current_Meter.elf: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: AVR C++ Linker'
-	avr-gcc -Os -Wl,--gc-sections  -L"/Users/jacob/eclipse/Arduino_Duemilanove_w__ATmega328/Release" -mmcu=atmega328p  -o"ardy_Current_Meter.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
+	avr-gcc -Os -Wl,--gc-sections  -L"/Volumes/Overflow HDD/Dropbox/eclipse/Arduino_Duemilanove_w__ATmega328/Release" -mmcu=atmega328p  -o"ardy_Current_Meter.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
 	@echo 'Finished building target: $@'
 	@echo ' '
 
