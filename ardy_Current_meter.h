@@ -21,12 +21,14 @@ void setup();
 #endif
 
 //add your function definitions for the project ardy_Current_Meter here
+
+// encoder_struct
 typedef struct{
 	int debounce_cnt;
 	int debounce_min;
-  int pin_state;
+  volatile int pin_state; // this value can be changed during an interrupt
 	long unsigned int startTime;
-  int max_hertz;
+  int min_hertz;
   long int hertz;
   int pin_num;
   int last_period;
@@ -36,6 +38,7 @@ typedef struct{
   long int alpha;
 }encoder_struct;
 
+//pulser_struct
 typedef struct{
 	int carrier_period;
 	int pulse_up_period;
@@ -50,6 +53,7 @@ typedef struct{
 	int down_or_up;
 }pulser_struct;
 
+//current_sensor_struct
 typedef struct{
 	int sense_pin_num;
 	int supply_pin_num;
@@ -59,6 +63,14 @@ typedef struct{
 	int current;
 }current_sensor_struct;
 
+// button_struct
+typedef struct{
+	int button_pin;
+	int button_state;
+	long unsigned int timeOfPress;
+}button_struct;
+
+// volt_sensor_struct
 typedef struct{
 	int sense_pin_num;
 	long int sense_cts;
@@ -78,6 +90,7 @@ void showLED(long dispNumMill, int sigfigs);
 void poll_potentiometer();
 void init_impulse(int * array, int array_length, int peak_value);
 void step_pulser(long unsigned int current_ime, pulser_struct* pulse);
+void encoder_interrupt();
 void poll_encoder(long unsigned int current_time, encoder_struct* encoder);
 void calculate_tach(long unsigned int current_time, encoder_struct* cadence_enc);
 void calculate_current(current_sensor_struct* current_sensor);

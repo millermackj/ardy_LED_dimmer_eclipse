@@ -6,12 +6,13 @@
 #define LED_PWM_PIN 11 // digital output pin
 #define VOLT_PIN 1 // analog voltage input pin
 #define CURRENT_PIN 3 // analog current input
-#define SAMPLE_PERIOD 1 // A/D sampling period in milliseconds
+#define SAMPLE_PERIOD 1 // sampling period in milliseconds
 #define INTERRUPTER_PIN 2 // tachometer pin
 #define LED_PIN 13 // onboard LED
+#define BTN_PIN 12 // input button
 
 // digital pins for LCD display
-#define LCD_LED 9 	// pin 9 - LED backlight
+#define BACKLIGHT_PIN 9 	// pin 9 - LED backlight
 
 #define PIN_SCE   4	// pin 4 - LCD chip select (CS)
 #define PIN_RESET 5	// pin 5 - LCD reset (RST)
@@ -147,13 +148,26 @@ long unsigned int calc_current_clock = 0;
 long unsigned int update_display_clock = 0;
 long unsigned int post_to_serial_clock = 0;
 long unsigned int toggle_display_clock = 0;
+long unsigned int backlight_clock = 2000;
+long unsigned int update_tach_clock = 0;
 
 int update_display_period = 1000;
 int calc_tach_period = 10;
+int calc_current_period = 4;
 int post_to_serial_period = 100;
 int led_state = 0;
 int blink_period = 1000;
 int toggle_display_period = 2000;
+int backlight_period = 7000;
+int update_tach_period = 5;
+
+
+// some pushbutton related constants
+const unsigned int shortPress = 20; // length of button press in milliseconds
+const unsigned int longPress = 1000;
+const unsigned int xlongPress = 2000;
+const int btnUp = LOW;
+const int btnDown = HIGH;
 
 
 //const int impulse_num_samples = 100;
@@ -168,6 +182,7 @@ char outputbuffer[128];
 encoder_struct tach_enc;
 current_sensor_struct current_sensor;
 volt_sensor_struct volt_sensor;
+button_struct button;
 
 void LcdCharacter(char character)
 {
@@ -227,6 +242,8 @@ void gotoXY(int x, int y) {
 }
 
 void setup() {
+	// set up the encoder interrupt to detect falling edge on digital pin 2
+	attachInterrupt(0, encoder_interrupt, FALLING);
 	Serial.begin(115200);
 	Serial.write("<h>time\tspeed\tcurrent\tcurrent_sense\tvoltage\tvoltage_sense</h>\n");
 	Serial.write("<u>ms\trpm\tmA\tcounts\tvolts\tcts</u>\n");
@@ -234,6 +251,7 @@ void setup() {
   pinMode(VOLT_PIN, INPUT);
   pinMode(INTERRUPTER_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(BTN_PIN, INPUT);
 
   LcdInitialize();
   gotoXY(0,0);
@@ -248,13 +266,16 @@ void setup() {
 
   blink_clock = millis();
 
-  tach_enc.max_hertz = 5;
+  tach_enc.min_hertz = 5;
   tach_enc.max_period = 5000;
   tach_enc.pin_num = INTERRUPTER_PIN;
   tach_enc.debounce_min = 5;
   tach_enc.alpha = 800;
   tach_enc.cts_per_rev = 1;
   tach_enc.hertz = 0;
+
+  button.button_pin = BTN_PIN;
+  button.button_state = btnDown;
 
 //  pulser.carrier_clock = 0;
 //  pulser.carrier_period = 5000;
@@ -326,6 +347,11 @@ void init_impulse(int * array, int array_length, int peak_value){
 //
 //}
 
+// interrupt called when tachometer pin goes from HIGH to LOW
+void encoder_interrupt(){
+	tach_enc.pin_state = 1;
+}
+
 void poll_encoder(long unsigned int current_time, encoder_struct* encoder){
   if(!digitalRead(encoder->pin_num)){
     if(encoder->debounce_cnt < encoder->debounce_min)
@@ -377,6 +403,32 @@ void calculate_voltage(volt_sensor_struct* volt_sensor){
 	volt_sensor->voltage = map(volt_sensor->sense_cts, 0, 1023, 0, volt_sensor->max_volts);
 }
 
+int pollButton(button_struct* button) {
+
+	int returnVal = 0; // default value means button was not down long enough to consider it a press
+	int newState = digitalRead(button->button_pin); // poll for button state
+
+	if (button->button_state != newState) { // only proceed if there is a change of state
+		button->button_state = newState;
+		if (newState == btnDown) { //the button has just been pressed down so start timing
+			button->timeOfPress = millis();
+		}
+
+		else { // otherwise the button has just let up so decide what to do
+			long unsigned pressDuration = millis() - button->timeOfPress; // length of time button has been down
+
+			if (pressDuration >= xlongPress)
+				returnVal = xlongPress;
+			else if (pressDuration >= longPress) // if button is pressed for long time, return that info
+				returnVal = longPress;
+			else if (pressDuration >= shortPress)
+				returnVal = shortPress;
+		}
+	}
+
+	return returnVal;
+}
+
 void loop() {
 	long unsigned int current_time = millis();
   if(current_time >= sample_clock){
@@ -393,16 +445,33 @@ void loop() {
 //    step_pulser(current_time, &pulser);
 
     // poll the tachometer encoder
-    poll_encoder(current_time, &tach_enc);
+    //poll_encoder(current_time, &tach_enc);
+
+    if (pollButton(&button) >= shortPress){
+    	backlight_clock = current_time + backlight_period;
+    }
+
+    if(current_time >= update_tach_clock){
+    	update_tach_clock = current_time + update_tach_period;
+    	// check if tachometer interrupt has been fired
+    	if(tach_enc.pin_state){
+    		tach_enc.pin_state = 0;
+    		tach_enc.last_period = (current_time - tach_enc.startTime);
+    		tach_enc.startTime = current_time;
+    	}
+    	digitalWrite(LED_PIN, digitalRead(tach_enc.pin_num));
+    }
 
 		if(current_time >= calc_tach_clock){
 			calc_tach_clock = current_time + calc_tach_period;
 			calculate_tach(current_time, &tach_enc);
+		}
+
+		if(current_time >= calc_current_clock){
+			calc_current_clock = current_time + calc_current_period;
 			calculate_current(&current_sensor);
 			calculate_voltage(&volt_sensor);
 		}
-
-
 
 //  if(current_time >= blink_clock){
 //  	led_state = !led_state;
@@ -437,7 +506,7 @@ void loop() {
 		  }
 
 		  else if(toggle_display == SHOW_WATTS){
-		  	watts = (current_sensor.current * volt_sensor.voltage) / 1000;
+		  	watts = abs(current_sensor.current * volt_sensor.voltage) / 1000;
 			  snprintf(outputbuffer,11,"%ld.%01ld Watts", watts/1000, (watts%1000) / 100);
 		  }
 
@@ -452,16 +521,22 @@ void loop() {
 		  gotoXY(6,5);
 		  LcdString(outputbuffer);
 		}
-		if(current_time >= post_to_serial_clock){
-			post_to_serial_clock = current_time + post_to_serial_period;
-//			Serial.write("<r>");
-//			Serial.write(tach_enc.hertz / 1000);
-//			Serial.write(".");
-//			Serial.write(tach_enc.hertz % 1000);
-			sprintf(outputbuffer, "<r>%lu.%03lu\t%ld.%03ld\t%d\t%ld\t%ld.%03ld\t%ld</r>\n", current_time/1000,
-					current_time % 1000, (60*tach_enc.hertz)/1000, ((60*tach_enc.hertz) % 1000)/10,current_sensor.current, current_sensor.sense_cts,
-					volt_sensor.voltage / 1000, volt_sensor.voltage % 1000, volt_sensor.sense_cts);
-			Serial.write(outputbuffer);
+//		if(current_time >= post_to_serial_clock){
+//			post_to_serial_clock = current_time + post_to_serial_period;
+////			Serial.write("<r>");
+////			Serial.write(tach_enc.hertz / 1000);
+////			Serial.write(".");
+////			Serial.write(tach_enc.hertz % 1000);
+//			sprintf(outputbuffer, "<r>%lu.%03lu\t%ld.%03ld\t%d\t%ld\t%ld.%03ld\t%ld</r>\n", current_time/1000,
+//					current_time % 1000, (60*tach_enc.hertz)/1000, ((60*tach_enc.hertz) % 1000)/10,current_sensor.current, current_sensor.sense_cts,
+//					volt_sensor.voltage / 1000, volt_sensor.voltage % 1000, volt_sensor.sense_cts);
+//			Serial.write(outputbuffer);
+//		}
+
+		if(current_time <= backlight_clock){
+			analogWrite(BACKLIGHT_PIN, 35);
 		}
+		else
+			analogWrite(BACKLIGHT_PIN, 0);
   }
 }
